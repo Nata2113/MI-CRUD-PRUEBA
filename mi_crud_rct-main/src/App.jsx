@@ -3,7 +3,7 @@ import Form from "./components/Form";
 import List from "./components/List";
 import "./App.css";
 
-// Componente principal de la aplicación
+// Componente principal 
 function App() {
   // Estado para la lista de elementos
   const [items, setItems] = useState([]);
