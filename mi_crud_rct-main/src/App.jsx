@@ -1,150 +1,180 @@
-import React, { useState, useEffect } from "react";
-import "./App.css";
+import React, { useState, useEffect } from 'react';
+import './App.css';
 
 function App() {
   const [students, setStudents] = useState([]);
-  const [name, setName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [grade, setGrade] = useState("");
-  const [editIndex, setEditIndex] = useState(null);
+  const [editingIndex, setEditingIndex] = useState(-1);
+  const [name, setName] = useState('');
+  const [assignment, setAssignment] = useState('');
+  const [average, setAverage] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [assignmentError, setAssignmentError] = useState('');
+  const [averageError, setAverageError] = useState('');
 
+  // 🧠 Cargar datos desde MongoDB
   useEffect(() => {
-    const saved = localStorage.getItem("students");
-    if (saved) setStudents(JSON.parse(saved));
+    const fetchStudents = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/estudiantes");
+        const data = await res.json();
+        setStudents(data);
+      } catch (error) {
+        console.error("❌ Error al obtener estudiantes:", error.message);
+      }
+    };
+    fetchStudents();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("students", JSON.stringify(students));
-  }, [students]);
+  const getAppreciationScale = (avg) => {
+    const num = parseFloat(avg);
+    if (num >= 1.0 && num <= 3.9) return 'Deficiente';
+    if (num >= 4.0 && num <= 5.5) return 'Con mejora';
+    if (num >= 5.6 && num <= 6.4) return 'Buen trabajo';
+    if (num >= 6.5 && num <= 7.0) return 'Destacado';
+    return 'N/A';
+  };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const numericGrade = parseFloat(grade);
+    setNameError('');
+    setAssignmentError('');
+    setAverageError('');
+    let isValid = true;
 
-    if (!name.trim() || !lastName.trim()) {
-      alert("Nombre y apellido son obligatorios.");
-      return;
+    const parsedAverage = parseFloat(average);
+    if (!name.trim()) {
+      setNameError('Por favor, complete el campo Nombre.');
+      isValid = false;
+    } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(name.trim())) {
+      setNameError('El nombre solo puede contener letras y espacios.');
+      isValid = false;
     }
 
-    if (isNaN(numericGrade) || numericGrade < 1 || numericGrade > 7) {
-      alert("La nota debe ser un número entre 1 y 7.");
-      return;
+    if (!assignment.trim()) {
+      setAssignmentError('Por favor, complete el campo Asignatura.');
+      isValid = false;
+    } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(assignment.trim())) {
+      setAssignmentError('La asignatura solo puede contener letras y espacios.');
+      isValid = false;
     }
 
-    const newStudent = { name, lastName, grade: numericGrade };
-
-    if (editIndex !== null) {
-      const updated = [...students];
-      updated[editIndex] = newStudent;
-      setStudents(updated);
-      setEditIndex(null);
-    } else {
-      setStudents([...students, newStudent]);
+    if (isNaN(parsedAverage) || parsedAverage < 1 || parsedAverage > 7) {
+      setAverageError('Por favor, ingrese un promedio entre 1.0 y 7.0.');
+      isValid = false;
     }
 
-    setName("");
-    setLastName("");
-    setGrade("");
-  };
+    if (!isValid) return;
 
-  const handleDelete = (index) => {
-    if (window.confirm("¿Eliminar este estudiante?")) {
-      const updated = students.filter((_, i) => i !== index);
-      setStudents(updated);
+    const newStudent = {
+      name: name.trim(),
+      assignment: assignment.trim(),
+      average: parsedAverage
+    };
+
+    try {
+      const res = await fetch("http://localhost:5000/api/estudiantes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newStudent)
+      });
+      const data = await res.json();
+      setStudents((prev) => [...prev, data]);
+      setName('');
+      setAssignment('');
+      setAverage('');
+      setEditingIndex(-1);
+    } catch (error) {
+      console.error("❌ Error al guardar estudiante:", error.message);
     }
   };
-
-  const handleEdit = (index) => {
-    const student = students[index];
-    setName(student.name);
-    setLastName(student.lastName);
-    setGrade(student.grade);
-    setEditIndex(index);
-  };
-
-  const calcularPromedio = () => {
-    if (students.length === 0) return "NO DISPONIBLE";
-    const suma = students.reduce((acc, s) => acc + s.grade, 0);
-    return (suma / students.length).toFixed(2);
-  };
-
-  const totalEstudiantes = students.length;
-  const aprobados = students.filter((s) => s.grade >= 4.0).length;
-  const reprobados = totalEstudiantes - aprobados;
 
   return (
-    <div className="container">
-      <h2>Registro de Notas</h2>
-
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Nombre:</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+    <div className="container mt-5">
+      <div className="d-flex justify-content-center">
+        <div className="form-container p-4 border border-primary rounded bg-white w-100" style={{ maxWidth: '400px' }}>
+          <h3 className="mb-4 text-center">
+            {editingIndex !== -1 ? 'Editar Evaluación' : 'Evaluación de Alumnos'}
+          </h3>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label htmlFor="name" className="form-label">Nombre del Alumno:</label>
+              <input
+                type="text"
+                className={`form-control ${nameError ? 'is-invalid' : ''}`}
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+              {nameError && <div className="invalid-feedback d-block">{nameError}</div>}
+            </div>
+            <div className="mb-3">
+              <label htmlFor="assignment" className="form-label">Asignatura:</label>
+              <input
+                type="text"
+                className={`form-control ${assignmentError ? 'is-invalid' : ''}`}
+                id="assignment"
+                value={assignment}
+                onChange={(e) => setAssignment(e.target.value)}
+                required
+              />
+              {assignmentError && <div className="invalid-feedback d-block">{assignmentError}</div>}
+            </div>
+            <div className="mb-3">
+              <label htmlFor="average" className="form-label">Promedio (1.0 - 7.0):</label>
+              <input
+                type="number"
+                className={`form-control ${averageError ? 'is-invalid' : ''}`}
+                id="average"
+                step="0.1"
+                min="1.0"
+                max="7.0"
+                value={average}
+                onChange={(e) => setAverage(e.target.value)}
+                required
+              />
+              {averageError && <div className="invalid-feedback d-block">{averageError}</div>}
+            </div>
+            <button type="submit" className="btn btn-primary w-100">
+              {editingIndex !== -1 ? 'Actualizar Evaluación' : 'Agregar Evaluación'}
+            </button>
+          </form>
         </div>
-        <div>
-          <label>Apellido:</label>
-          <input
-            type="text"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-          />
-        </div>
-        <div>
-          <label>Nota:</label>
-          <input
-            type="number"
-            step="0.1"
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-          />
-        </div>
-        <button type="submit">
-          {editIndex !== null ? "Actualizar" : "Agregar"}
-        </button>
-      </form>
-
-      <div id="average">
-        Promedio General del Curso: {calcularPromedio()}
       </div>
 
-      <div id="resumen">
-        <p>Total de estudiantes: <strong>{totalEstudiantes}</strong></p>
-        <p style={{ color: "green" }}>Aprobados: <strong>{aprobados}</strong></p>
-        <p style={{ color: "red" }}>Reprobados: <strong>{reprobados}</strong></p>
+      <div className="d-flex justify-content-center mt-5">
+        <div className="card shadow-sm w-100" style={{ maxWidth: '1000px', minWidth: '350px' }}>
+          <div className="card-header bg-white text-center">
+            <h5 className="mb-0">Evaluaciones Guardadas</h5>
+          </div>
+          <ul className="list-group list-group-flush">
+            {students.length === 0 ? (
+              <li className="list-group-item text-center"><em>No hay evaluaciones guardadas aún, ¡Agrega una!</em></li>
+            ) : (
+              students.map((student, index) => (
+                <li key={index} className="list-group-item d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+                  <div>
+                    <strong>Alumno:</strong> {student.name}<br />
+                    <strong>Asignatura:</strong> {student.assignment}<br />
+                    <strong>Promedio:</strong> {student.average}
+                    <div>
+                      <span className={`badge mt-2 ${getAppreciationScale(student.average) === 'Destacado' ? 'bg-primary' : getAppreciationScale(student.average) === 'Buen trabajo' ? 'bg-success' : getAppreciationScale(student.average) === 'Con mejora' ? 'bg-warning text-dark' : 'bg-danger'}`}>
+                        {getAppreciationScale(student.average)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 mt-md-0">
+                    <button className="btn btn-warning btn-sm me-2" onClick={() => setEditingIndex(index)}>Editar</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => alert('🛑 Eliminar conectado al backend aún no está implementado.')}>Eliminar</button>
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
       </div>
-
-      <table id="studentsTable">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Apellido</th>
-            <th>Nota</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {students.map((student, index) => (
-            <tr key={index}>
-              <td data-label="Nombre">{student.name}</td>
-              <td data-label="Apellido">{student.lastName}</td>
-              <td data-label="Nota" style={{ color: student.grade >= 4 ? "green" : "red" }}>
-                {student.grade}
-              </td>
-              <td data-label="Acciones">
-                <button onClick={() => handleEdit(index)}>Editar</button>{" "}
-                <button onClick={() => handleDelete(index)}>Eliminar</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
 
 export default App;
-
