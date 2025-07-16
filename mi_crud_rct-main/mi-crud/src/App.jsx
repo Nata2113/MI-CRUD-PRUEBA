@@ -1,216 +1,238 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
+const API = 'http://localhost:5000/api';
+
 function App() {
-  // Estado principal para almacenar la lista de estudiantes
-  const [students, setStudents] = useState(() => {
-    try {
-      const storedStudents = localStorage.getItem('studentsData');
-      return storedStudents ? JSON.parse(storedStudents) : [];
-    } catch (error) {
-      console.error("Error al cargar estudiantes de LocalStorage:", error);
-      return [];
-    }
+  const [vista, setVista] = useState('clientes');
+
+  // Clientes
+  const [clientes, setClientes] = useState([]);
+  const [cliente, setCliente] = useState({ nombre: '', apellidos: '', ciudad: '', fechaRegistro: '' });
+  const [idCliente, setIdCliente] = useState(null);
+
+  // Productos
+  const [productos, setProductos] = useState([]);
+  const [producto, setProducto] = useState({ codigo: '', nombre: '', precio: '', stock: '', estado: '' });
+  const [idProducto, setIdProducto] = useState(null);
+
+  // Pedidos
+  const [pedidos, setPedidos] = useState([]);
+  const [pedido, setPedido] = useState({ clienteId: '', fecha: '', metodoPago: '', productos: [] });
+  const [productoPedido, setProductoPedido] = useState({ codigoProducto: '', nombre: '', cantidad: '', precioUnitario: '' });
+
+  // ========================== CLIENTES ==========================
+  useEffect(() => {
+    fetch(`${API}/clientes`).then(res => res.json()).then(setClientes);
+    fetch(`${API}/productos`).then(res => res.json()).then(setProductos);
+  }, []);
+
+  const guardarCliente = async (e) => {
+  e.preventDefault();
+  const url = idCliente ? `${API}/clientes/${idCliente}` : `${API}/clientes`;
+  const method = idCliente ? 'PUT' : 'POST';
+
+  // ✅ Paso 2: estructura adaptada al modelo de Mongoose
+  const clienteAEnviar = {
+    nombre: cliente.nombre,
+    apellidos: cliente.apellidos,
+    direccion: {
+      ciudad: cliente.ciudad
+    },
+    fechaRegistro: cliente.fechaRegistro
+  };
+
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(clienteAEnviar)
   });
 
-  // Estado para el índice del estudiante que se está editando (-1 si no hay edición)
-  const [editingIndex, setEditingIndex] = useState(-1);
+  const data = await res.json();
+  if (idCliente) {
+    setClientes(clientes.map(c => c._id === idCliente ? data : c));
+  } else {
+    setClientes([...clientes, data]);
+  }
 
-  // Estados para los campos del formulario
-  const [name, setName] = useState('');
-  const [assignment, setAssignment] = useState('');
-  const [average, setAverage] = useState('');
+  setCliente({ nombre: '', apellidos: '', ciudad: '', fechaRegistro: '' });
+  setIdCliente(null);
+};
 
-  // Estados para los mensajes de error
-  const [nameError, setNameError] = useState('');
-  const [assignmentError, setAssignmentError] = useState('');
-  const [averageError, setAverageError] = useState('');
-
-  // Persistencia en localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('studentsData', JSON.stringify(students));
-    } catch (error) {
-      console.error("Error al guardar estudiantes en LocalStorage:", error);
-    }
-  }, [students]);
-
-  // Escala de valoración
-  const getAppreciationScale = (average) => {
-    const num = parseFloat(average);
-    if (num >= 1.0 && num <= 3.9) return 'Deficiente';
-    if (num >= 4.0 && num <= 5.5) return 'Con mejora';
-    if (num >= 5.6 && num <= 6.4) return 'Buen trabajo';
-    if (num >= 6.5 && num <= 7.0) return 'Destacado';
-    return 'N/A';
+  const editarCliente = (c) => {
+    setCliente(c);
+    setIdCliente(c._id);
   };
 
-  // Envío del formulario
-  const handleSubmit = (e) => {
+  const eliminarCliente = async (id) => {
+    await fetch(`${API}/clientes/${id}`, { method: 'DELETE' });
+    setClientes(clientes.filter(c => c._id !== id));
+  };
+
+  // ========================== PRODUCTOS ==========================
+  const guardarProducto = async (e) => {
     e.preventDefault();
-    setNameError('');
-    setAssignmentError('');
-    setAverageError('');
-    let isValid = true;
+    const url = idProducto ? `${API}/productos/${idProducto}` : `${API}/productos`;
+    const method = idProducto ? 'PUT' : 'POST';
 
-    // Validación nombre: solo letras y espacios
-    if (!name.trim()) {
-      setNameError('Por favor, complete el campo Nombre.');
-      isValid = false;
-    } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(name.trim())) {
-      setNameError('El nombre solo puede contener letras y espacios.');
-      isValid = false;
-    }
-
-    // Validación asignatura: solo letras y espacios
-    if (!assignment.trim()) {
-      setAssignmentError('Por favor, complete el campo Asignatura.');
-      isValid = false;
-    } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$/.test(assignment.trim())) {
-      setAssignmentError('La asignatura solo puede contener letras y espacios.');
-      isValid = false;
-    }
-
-    // Validación promedio
-    const parsedAverage = parseFloat(average);
-    if (isNaN(parsedAverage) || parsedAverage < 1 || parsedAverage > 7) {
-      setAverageError('Por favor, ingrese un promedio entre 1.0 y 7.0.');
-      isValid = false;
-    }
-
-    if (!isValid) return;
-
-    const newStudent = {
-      name: name.trim(),
-      assignment: assignment.trim(),
-      average: parsedAverage
-    };
-
-    if (editingIndex !== -1) {
-      const updatedStudents = students.map((student, idx) =>
-        idx === editingIndex ? newStudent : student
-      );
-      setStudents(updatedStudents);
-      setEditingIndex(-1);
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...producto, precio: parseFloat(producto.precio), stock: parseInt(producto.stock) })
+    });
+    const data = await res.json();
+    if (idProducto) {
+      setProductos(productos.map(p => p._id === idProducto ? data : p));
     } else {
-      setStudents([...students, newStudent]);
+      setProductos([...productos, data]);
     }
-
-    setName('');
-    setAssignment('');
-    setAverage('');
+    setProducto({ codigo: '', nombre: '', precio: '', stock: '', estado: '' });
+    setIdProducto(null);
   };
 
-  // Editar estudiante
-  const handleEdit = (index) => {
-    const student = students[index];
-    setName(student.name);
-    setAssignment(student.assignment);
-    setAverage(student.average);
-    setEditingIndex(index);
-    setNameError('');
-    setAssignmentError('');
-    setAverageError('');
+  const editarProducto = (p) => {
+    setProducto(p);
+    setIdProducto(p._id);
   };
 
-  // Eliminar estudiante
-  const handleDelete = (index) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar a este estudiante?')) {
-      const updatedStudents = students.filter((_, i) => i !== index);
-      setStudents(updatedStudents);
-      if (editingIndex === index) {
-        setEditingIndex(-1);
-        setName('');
-        setAssignment('');
-        setAverage('');
-      }
-    }
+  const eliminarProducto = async (id) => {
+    await fetch(`${API}/productos/${id}`, { method: 'DELETE' });
+    setProductos(productos.filter(p => p._id !== id));
+  };
+
+  // ========================== PEDIDOS ==========================
+  const agregarProductoAlPedido = () => {
+    const total = productoPedido.cantidad * productoPedido.precioUnitario;
+    setPedido({
+      ...pedido,
+      productos: [...pedido.productos, { ...productoPedido, totalComprado: total }]
+    });
+    setProductoPedido({ codigoProducto: '', nombre: '', cantidad: '', precioUnitario: '' });
+  };
+
+  const guardarPedido = async (e) => {
+    e.preventDefault();
+    const total = pedido.productos.reduce((sum, p) => sum + p.totalComprado, 0);
+    const nuevoPedido = { ...pedido, totalCompra: total };
+    const res = await fetch(`${API}/pedidos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nuevoPedido)
+    });
+    await res.json();
+    alert('Pedido guardado');
+    setPedido({ clienteId: '', fecha: '', metodoPago: '', productos: [] });
+  };
+
+  const cargarPedidosDeCliente = async (clienteId) => {
+    const res = await fetch(`${API}/pedidos/cliente/${clienteId}`);
+    const data = await res.json();
+    setPedidos(data);
+    setVista('verPedidos');
+  };
+
+  const eliminarPedido = async (id) => {
+    await fetch(`${API}/pedidos/${id}`, { method: 'DELETE' });
+    setPedidos(pedidos.filter(p => p._id !== id));
   };
 
   return (
-    <div className="container mt-5">
-      <div className="d-flex justify-content-center">
-        <div className="form-container p-4 border border-primary rounded bg-white w-100" style={{ maxWidth: '400px' }}>
-          <h3 className="mb-4 text-center">
-            {editingIndex !== -1 ? 'Editar Evaluación' : 'Evaluación de Alumnos'}
-          </h3>
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="name" className="form-label">Nombre del Alumno:</label>
-              <input
-                type="text"
-                className={`form-control ${nameError ? 'is-invalid' : ''}`}
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-              {nameError && <div className="invalid-feedback d-block">{nameError}</div>}
-            </div>
-            <div className="mb-3">
-              <label htmlFor="assignment" className="form-label">Asignatura:</label>
-              <input
-                type="text"
-                className={`form-control ${assignmentError ? 'is-invalid' : ''}`}
-                id="assignment"
-                value={assignment}
-                onChange={(e) => setAssignment(e.target.value)}
-                required
-              />
-              {assignmentError && <div className="invalid-feedback d-block">{assignmentError}</div>}
-            </div>
-            <div className="mb-3">
-              <label htmlFor="average" className="form-label">Promedio (1.0 - 7.0):</label>
-              <input
-                type="number"
-                className={`form-control ${averageError ? 'is-invalid' : ''}`}
-                id="average"
-                step="0.1"
-                min="1.0"
-                max="7.0"
-                value={average}
-                onChange={(e) => setAverage(e.target.value)}
-                required
-              />
-              {averageError && <div className="invalid-feedback d-block">{averageError}</div>}
-            </div>
-            <button type="submit" className="btn btn-primary w-100">
-              {editingIndex !== -1 ? 'Actualizar Evaluación' : 'Agregar Evaluación'}
-            </button>
-          </form>
-        </div>
+    <div className="container">
+      <div className="text-center">
+        <button onClick={() => setVista('clientes')}>Clientes</button>
+        <button onClick={() => setVista('productos')}>Productos</button>
+        <button onClick={() => setVista('pedidos')}>Pedidos</button>
       </div>
 
-      {/* Evaluaciones guardadas */}
-      <div className="d-flex justify-content-center mt-5">
-        <div className="card shadow-sm w-100" style={{ maxWidth: '1000px', minWidth: '350px' }}>
-          <div className="card-header bg-white text-center">
-            <h5 className="mb-0">Evaluaciones Guardadas</h5>
-          </div>
-          <ul className="list-group list-group-flush">
-            {students.length === 0 ? (
-              <li className="list-group-item text-center"><em>No hay evaluaciones guardadas aún, ¡Agrega una!</em></li>
-            ) : (
-              students.map((student, index) => (
-                <li key={index} className="list-group-item d-flex flex-column flex-md-row align-items-md-center justify-content-between">
-                  <div>
-                    <strong>Alumno:</strong> {student.name}<br />
-                    <strong>Asignatura:</strong> {student.assignment}<br />
-                    <strong>Promedio:</strong> {student.average}
-                    <div>
-                      <span className={`badge mt-2 ${getAppreciationScale(student.average) === 'Destacado' ? 'bg-primary' : getAppreciationScale(student.average) === 'Buen trabajo' ? 'bg-success' : getAppreciationScale(student.average) === 'Con mejora' ? 'bg-warning text-dark' : 'bg-danger'}`}>{getAppreciationScale(student.average)}</span>
-                    </div>
-                  </div>
-                  <div className="mt-3 mt-md-0">
-                    <button className="btn btn-warning btn-sm me-2" onClick={() => handleEdit(index)}>Editar</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(index)}>Eliminar</button>
-                  </div>
-                </li>
-              ))
-            )}
+      {/* CLIENTES */}
+      {vista === 'clientes' && (
+        <>
+          <h3>Clientes</h3>
+          <form onSubmit={guardarCliente}>
+            <input placeholder="Nombre" value={cliente.nombre} onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })} />
+            <input placeholder="Apellidos" value={cliente.apellidos} onChange={(e) => setCliente({ ...cliente, apellidos: e.target.value })} />
+            <input placeholder="Ciudad" value={cliente.ciudad} onChange={(e) => setCliente({ ...cliente, ciudad: e.target.value })} />
+            <input type="date" value={cliente.fechaRegistro} onChange={(e) => setCliente({ ...cliente, fechaRegistro: e.target.value })} />
+            <button type="submit">{idCliente ? 'Actualizar' : 'Guardar'}</button>
+          </form>
+          <ul className="list-group">
+            {clientes.map(c => (
+              <li key={c._id} className="list-group-item">
+                {c.nombre} {c.apellidos} - {c.ciudad} - {c.fechaRegistro}
+                <button onClick={() => editarCliente(c)}>Editar</button>
+                <button onClick={() => eliminarCliente(c._id)}>Eliminar</button>
+                <button onClick={() => cargarPedidosDeCliente(c._id)}>Ver pedidos</button>
+              </li>
+            ))}
           </ul>
-        </div>
-      </div>
+        </>
+      )}
+
+      {/* PRODUCTOS */}
+      {vista === 'productos' && (
+        <>
+          <h3>Productos</h3>
+          <form onSubmit={guardarProducto}>
+            <input placeholder="Código" value={producto.codigo} onChange={(e) => setProducto({ ...producto, codigo: e.target.value })} />
+            <input placeholder="Nombre" value={producto.nombre} onChange={(e) => setProducto({ ...producto, nombre: e.target.value })} />
+            <input type="number" placeholder="Precio" value={producto.precio} onChange={(e) => setProducto({ ...producto, precio: e.target.value })} />
+            <input type="number" placeholder="Stock" value={producto.stock} onChange={(e) => setProducto({ ...producto, stock: e.target.value })} />
+            <input placeholder="Estado" value={producto.estado} onChange={(e) => setProducto({ ...producto, estado: e.target.value })} />
+            <button type="submit">{idProducto ? 'Actualizar' : 'Guardar'}</button>
+          </form>
+          <ul className="list-group">
+            {productos.map(p => (
+              <li key={p._id} className="list-group-item">
+                {p.nombre} - {p.codigo} - ${p.precio} - Stock: {p.stock}
+                <button onClick={() => editarProducto(p)}>Editar</button>
+                <button onClick={() => eliminarProducto(p._id)}>Eliminar</button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {/* PEDIDOS */}
+      {vista === 'pedidos' && (
+        <>
+          <h3>Crear Pedido</h3>
+          <form onSubmit={guardarPedido}>
+            <select value={pedido.clienteId} onChange={(e) => setPedido({ ...pedido, clienteId: e.target.value })}>
+              <option value="">Seleccione un cliente</option>
+              {clientes.map(c => (
+                <option key={c._id} value={c._id}>{c.nombre} {c.apellidos}</option>
+              ))}
+            </select>
+            <input type="date" value={pedido.fecha} onChange={(e) => setPedido({ ...pedido, fecha: e.target.value })} />
+            <input placeholder="Método de pago" value={pedido.metodoPago} onChange={(e) => setPedido({ ...pedido, metodoPago: e.target.value })} />
+
+            <h4>Agregar producto al pedido</h4>
+            <input placeholder="Código" value={productoPedido.codigoProducto} onChange={(e) => setProductoPedido({ ...productoPedido, codigoProducto: e.target.value })} />
+            <input placeholder="Nombre" value={productoPedido.nombre} onChange={(e) => setProductoPedido({ ...productoPedido, nombre: e.target.value })} />
+            <input placeholder="Cantidad" type="number" value={productoPedido.cantidad} onChange={(e) => setProductoPedido({ ...productoPedido, cantidad: parseInt(e.target.value) })} />
+            <input placeholder="Precio unitario" type="number" value={productoPedido.precioUnitario} onChange={(e) => setProductoPedido({ ...productoPedido, precioUnitario: parseFloat(e.target.value) })} />
+            <button type="button" onClick={agregarProductoAlPedido}>Agregar producto</button>
+
+            <button type="submit">Guardar Pedido</button>
+          </form>
+        </>
+      )}
+
+      {/* VER PEDIDOS */}
+      {vista === 'verPedidos' && (
+        <>
+          <h3>Pedidos del cliente</h3>
+          <ul className="list-group">
+            {pedidos.map(p => (
+              <li key={p._id} className="list-group-item">
+                Fecha: {p.fechaPedido} | Total: ${p.totalCompra} | Pago: {p.metodoPago}
+                <button onClick={() => eliminarPedido(p._id)}>Eliminar</button>
+              </li>
+            ))}
+          </ul>
+          <button onClick={() => setVista('clientes')}>Volver</button>
+        </>
+      )}
     </div>
   );
 }

@@ -1,32 +1,36 @@
-// Cargar variables del entorno desde .env
 require('dotenv').config();
-
-// Importar dependencias
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
 // Importar rutas
-const estudianteRoutes = require('./routes/estudianteRoutes');
+const clienteRoutes = require('./routes/clienteRoutes');
+const productoRoutes = require('./routes/productoRoutes');
+const pedidoRoutes = require('./routes/pedidoRoutes'); // 📌 NUEVO
 
-// Crear la aplicación
+// Crear la app
 const app = express();
 
-// Middleware
+// Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Ruta principal para estudiantes
-app.use('/api/estudiantes', estudianteRoutes);
+// Usar las rutas
+app.use('/api/clientes', clienteRoutes);
+app.use('/api/productos', productoRoutes);
+app.use('/api/pedidos', pedidoRoutes); // 📌 NUEVO
 
-// Conexión a MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('✅ Conectado a MongoDB');
-    app.listen(5000, () => {
-      console.log('🚀 Servidor backend corriendo en puerto 5000');
-    });
-  })
-  .catch((err) => {
-    console.error('❌ Error al conectar con MongoDB:', err.message);
-  }); 
+// Conectar a MongoDB y levantar el servidor
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => {
+  console.log('✅ Conectado a MongoDB');
+  app.listen(5000, () => {
+    console.log('🚀 Servidor backend corriendo en http://localhost:5000');
+  });
+})
+.catch((err) => {
+  console.error('❌ Error al conectar:', err.message);
+});

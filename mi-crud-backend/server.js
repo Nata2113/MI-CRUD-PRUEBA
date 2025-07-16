@@ -4,7 +4,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 
 // Importar rutas
-const estudianteRoutes = require('./routes/estudianteRoutes');
+const clienteRoutes = require('./routes/clienteRoutes');
+const productoRoutes = require('./routes/productoRoutes');
+const pedidoRoutes = require('./routes/pedidoRoutes'); // ✅ NUEVA RUTA
 
 // Crear la app
 const app = express();
@@ -14,16 +16,21 @@ app.use(cors());
 app.use(express.json());
 
 // Usar las rutas
-app.use('/api/estudiantes', estudianteRoutes);
+app.use('/api/clientes', clienteRoutes);
+app.use('/api/productos', productoRoutes);
+app.use('/api/pedidos', pedidoRoutes); // ✅ REGISTRO DE LA RUTA DE PEDIDOS
 
 // Conectar a MongoDB y levantar el servidor
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('✅ Conectado a MongoDB');
-    app.listen(5000, () => {
-      console.log('🚀 Servidor backend corriendo en puerto 5000');
-    });
-  })
-  .catch((err) => {
-    console.error('❌ Error al conectar:', err.message);
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => {
+  console.log('✅ Conectado a MongoDB');
+  app.listen(5000, () => {
+    console.log('🚀 Servidor backend corriendo en http://localhost:5000');
   });
+})
+.catch((err) => {
+  console.error('❌ Error al conectar:', err.message);
+});
